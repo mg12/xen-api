@@ -989,3 +989,21 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict=true) ?policy f =
          Helpers.Early_wakeup.broadcast (Datamodel._vm, Ref.string_of self);
        with
          _ -> ())
+
+(* Device Model Profiles *)
+
+let with_device_model_profile ~__context ~hVM_boot_policy platform =
+  let is_hvm = hVM_boot_policy <> "" in
+  platform @
+  if (not is_hvm) || List.mem_assoc Xapi_globs.device_model_platform_key_name platform
+  then []
+  else (* only add device-model to an HVM VM platform if it is not already there *)
+    begin
+      let pool = Helpers.get_pool ~__context in
+      let pool_other_config =  Db.Pool.get_other_config ~__context ~self:pool in
+      [ Xapi_globs.device_model_platform_key_name,
+        if List.mem_assoc Xapi_globs.device_model_default_key_name pool_other_config
+          then List.assoc Xapi_globs.device_model_default_key_name pool_other_config
+          else Xapi_globs.default_device_model_default_value
+      ]
+    end

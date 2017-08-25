@@ -359,6 +359,12 @@ let rolling_upgrade_in_progress = "rolling_upgrade_in_progress"
 (* Set on Pool.other_config to override the base HA timeout in a persistent fashion *)
 let default_ha_timeout = "default_ha_timeout"
 
+(* Set on Pool.other_config to set the platform default device-model for a newly-created VM *)
+let device_model_default_key_name = "device-model-default"
+let default_device_model_default_value = "qemu-trad"
+(* Set on VM.platform to choose the device model for the newly-started VM *)
+let device_model_platform_key_name = "device-model"
+
 (* Executed during startup when the API/database is online but before storage or networks
    are fully initialised. *)
 let startup_script_hook = ref "xapi-startup-script"
