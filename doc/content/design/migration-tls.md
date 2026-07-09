@@ -245,8 +245,12 @@ default, so an upgrade changes nothing until an admin enables it.
 * Phase 2: a kTLS receiver, so the destination also drops stunnel from the data
   path. It needs an SNI dispatcher (eg. sniproxy) to share port 443 between the
   receiver and the existing stunnel endpoint.
-* kTLS hardware-offload NICs could move the bulk encryption off the cpu and make
-  the transfer faster still.
+* kTLS hardware-offload NICs (`CONFIG_TLS_DEVICE=y` in kernel) could move the bulk
+  encryption off the cpu. This depends on the NIC and the network topology: the
+  offload applies where the migration socket terminates in a TLS-capable NIC (for
+  example a raw or bonded NIC), but not where the traffic is bridged (kernel or Open
+  vSwitch). The gain grows with line rate: at 100 GbE and above, software AES-GCM
+  (even with AES-NI/AVX2 or VAES/AVX-512) becomes the bottleneck on a single core.
 * `pool.migration_transport` (R3) once kTLS becomes the default.
 * mutual TLS (client-certificate auth) and destination-hostname pinning exceed
   the stunnel migration client and can be done with the Phase 2 receiver work.
