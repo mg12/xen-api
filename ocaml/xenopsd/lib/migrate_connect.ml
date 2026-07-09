@@ -73,7 +73,12 @@ let default_https_port = 443
 let close_ignore fd =
   Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun () -> Unix.close fd)
 
-let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+let protect ~finally protected =
+  Xapi_stdext_pervasives.Pervasiveext.finally protected finally
+
+(* [let@ () = protect ~finally:cleanup in body] runs [body] then always runs
+   [cleanup], reading top to bottom instead of nesting [body] inside a thunk. *)
+let ( let@ ) f x = f x
 
 let recv_one_fd sock =
   (* The 16-byte buffer holds enough space for the throwaway 1-byte SCM_RIGHTS
@@ -131,38 +136,38 @@ let connect_via_ktls_helper ~host ~port ~verify_cert =
   in
   (* The helper now holds its own copy of sock_helper; we don't need ours. *)
   close_ignore sock_helper ;
-  (* [sock_xenopsd] is closed on every path by [finally]; the helper is always
-     reaped via [waitpid] (killed first if it times out) so it cannot leak. *)
-  finally
-    (fun () ->
-      let received_fd =
-        try
-          if
-            not
-              (Xapi_stdext_threads.Threadext.wait_timed_read sock_xenopsd
-                 !helper_timeout
-              )
-          then (
-            (* Kill the helper so we don't leak it. *)
-            ( try Unix.kill (Forkhelpers.getpid pid) Sys.sigkill with _ -> ()
-            ) ;
-            failwith
-              (Printf.sprintf "helper did not respond within %.0fs"
-                 !helper_timeout
-              )
-          ) ;
-          recv_one_fd sock_xenopsd
-        with e ->
-          (try ignore (Forkhelpers.waitpid pid) with _ -> ()) ;
-          raise e
-      in
-      (* Reap the helper and check its exit status; the fd we would return is
-         closed if the helper did not exit cleanly. *)
-      ( match snd (Forkhelpers.waitpid pid) with
+  (* [sock_xenopsd] is closed on every path by the [protect] cleanup below; the
+     helper is always reaped via [waitpid] (killed first if it times out) so it
+     cannot leak. *)
+  let@ () = protect ~finally:(fun () -> close_ignore sock_xenopsd) in
+  let received_fd =
+    try
+      if
+        not
+          (Xapi_stdext_threads.Threadext.wait_timed_read sock_xenopsd
+             !helper_timeout
+          )
+      then (
+        (* Kill the helper so we don't leak it. *)
+        ( try Unix.kill (Forkhelpers.getpid pid) Sys.sigkill with _ -> ()
+        ) ;
+        failwith
+          (Printf.sprintf "helper did not respond within %.0fs" !helper_timeout)
+      ) ;
+      recv_one_fd sock_xenopsd
+    with e ->
+      (try ignore (Forkhelpers.waitpid pid) with _ -> ()) ;
+      raise e
+  in
+  (* Reap the helper and check its exit status. Close the fd we would return on
+     ANY failure to confirm a clean exit (a raising waitpid, or a non-zero or
+     other status); on a clean exit it is handed to the caller, so it must NOT
+     be closed here. *)
+  ( try
+      match snd (Forkhelpers.waitpid pid) with
       | Unix.WEXITED 0 ->
           ()
       | status ->
-          close_ignore received_fd ;
           let reason =
             match status with
             | Unix.WEXITED n ->
@@ -173,11 +178,10 @@ let connect_via_ktls_helper ~host ~port ~verify_cert =
                 Printf.sprintf "stopped by signal %d" n
           in
           failwith (Printf.sprintf "ktls-helper %s" reason)
-      ) ;
-      D.debug "received kTLS fd from helper for %s:%d" host port ;
-      received_fd
-    )
-    (fun () -> close_ignore sock_xenopsd)
+    with e -> close_ignore received_fd ; raise e
+  ) ;
+  D.debug "received kTLS fd from helper for %s:%d" host port ;
+  received_fd
 
 (** Drop-in replacement for [Open_uri.with_open_uri] on the migration paths.
 
@@ -220,5 +224,6 @@ let with_open_uri ?verify_cert uri f =
         | None ->
             fallback ()
         | Some fd ->
-            finally (fun () -> f fd) (fun () -> close_ignore fd)
+            let@ () = protect ~finally:(fun () -> close_ignore fd) in
+            f fd
       )
