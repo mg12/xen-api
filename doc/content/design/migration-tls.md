@@ -131,8 +131,9 @@ Security: the helper uses OpenSSL exactly as stunnel does, so the bulk kTLS
 stream is byte-identical to stunnel's and is accepted by the unchanged
 destination stunnel.
 
-* same handshake: TLS 1.2, cipher `ECDHE-RSA-AES256-GCM-SHA384`, ECDHE group
-  `secp384r1`, renegotiation disabled, authenticated with `SSL_VERIFY_PEER`
+* same handshake: TLS 1.2, with the cipher list and ECDHE curve taken from the
+  pool TLS policy (`Stunnel.Openssl`, the same source the stunnel client reads),
+  renegotiation disabled, authenticated with `SSL_VERIFY_PEER`
   against the destination's pool-internal certificate (CN = host uuid,
   SNI = `pool`).
 * single source of truth: the helper's verification is derived from the same
