@@ -240,6 +240,14 @@ coordination. xapi only permits migration from older to newer toolstacks, so a
 newer kTLS sender is never required by an older receiver. The option is off by
 default, so an upgrade changes nothing until an admin enables it.
 
+## Applicability
+
+Phase 1 covers the sender side of the guest-memory migration stream (the vm,
+mem and vgpu fds in `VM_migrate`). It leaves the receiver and the other TLS
+users unchanged: SMAPIv1 storage migration uses `sparse_dd` and SMAPIv3 uses
+stunnel, both untouched, as are RRD and other stunnel traffic. Phase 2 (the
+kTLS receiver) would extend the same treatment to the destination.
+
 ## Outlook
 
 * Phase 2: a kTLS receiver, so the destination also drops stunnel from the data
