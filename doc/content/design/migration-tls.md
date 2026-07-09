@@ -43,7 +43,7 @@ stunnel receiver on the destination. Benefits:
   VMs, for less dom0 cpu (see Performance).
 * xenguest is unmodified: no libssl in xenguest, so no extra xen-devel
   upstreaming, maintenance or security reviews on xenguest/libxenguest.
-* same TLS security as stunnel: a small `xenopsd-tls-helper` does the OpenSSL
+* same TLS security as stunnel: a small `ktls-helper` does the OpenSSL
   handshake with the same key size, cipher, certificate and verification stunnel
   uses, then asks the kernel to take over the bulk encryption.
 * backwards-compatible & conservative: stunnel stays the default; kTLS is an
@@ -84,7 +84,7 @@ stunnel receiver on the destination. Benefits:
       name=migration_ktls` sets the entry on each host of the pool.
 * R2. Admin usage:
     * R2.1. vm-migrate: when the option is enabled, xenopsd uses
-      `xenopsd-tls-helper` instead of stunnel to set up kTLS transport for
+      `ktls-helper` instead of stunnel to set up kTLS transport for
       xenguest (see Design).
     * R2.2. host-evacuate: the vm-migrate operations it drives inherit R2.1.
 * R3. Future: once kTLS is the default, a XenAPI field
@@ -113,7 +113,7 @@ The goal is to remove the plaintext data pipe between stunnel and xenguest.
 | --- | --- | --- |
 | A: TLS inside xenguest/libxenguest | link libssl into xenguest; xenguest does `SSL_connect`/`SSL_accept` and `SSL_read`/`SSL_write` directly. Needs an SNI dispatcher (eg. sniproxy) on the receiver to share port 443. | Removes the pipe, but embeds TLS in xenguest: lots of changes, lots of xen-devel upstreaming, and ongoing security-maintenance on xenguest/libxenguest. Too expensive to create and maintain. |
 | B: xenguest as a stunnel SNI backend | use stunnel's SNI dispatch to route migration traffic to xenguest. | Easy (stunnel config only), but the plaintext pipe between stunnel and the backend remains, so it defeats the goal. |
-| C: kTLS via a small TLS helper | `xenopsd-tls-helper` does the OpenSSL handshake, asks OpenSSL to enable kTLS on the socket, and hands the kTLS socket fd to xenopsd over SCM_RIGHTS. xenguest then sees only plaintext; the kernel encrypts transparently. | xenguest is unmodified, stunnel leaves the sender data path, the helper reuses stunnel's OpenSSL config/keys/certificates, and kTLS can later be offloaded to hardware NICs. |
+| C: kTLS via a small TLS helper | `ktls-helper` does the OpenSSL handshake, asks OpenSSL to enable kTLS on the socket, and hands the kTLS socket fd to xenopsd over SCM_RIGHTS. xenguest then sees only plaintext; the kernel encrypts transparently. | xenguest is unmodified, stunnel leaves the sender data path, the helper reuses stunnel's OpenSSL config/keys/certificates, and kTLS can later be offloaded to hardware NICs. |
 
 Conclusion: design C (kTLS) seems superior, as it reaches the goal with fewer
 changes, is toolstack-only (no xen-devel upstream loop, no future xenguest
@@ -156,7 +156,7 @@ today's behaviour.
 
 ### The helper
 
-`xenopsd-tls-helper` does only what stunnel cannot, then gets out of the way:
+`ktls-helper` does only what stunnel cannot, then gets out of the way:
 
 1. perform the TLS handshake with OpenSSL (same protocol/cipher/cert/verification
    as stunnel).
@@ -209,9 +209,9 @@ then not the bottleneck.
 
 The sender path is in xenopsd. Outside the helper itself, the change is small:
 
-* `ocaml/xenopsd/tools/xenopsd-tls-helper/` — the standalone C helper, with its
+* `ocaml/ktls-helper/helper/` — the standalone C helper, with its
   Makefile and README. It is built on its own (`make`) and deployed to
-  `/usr/libexec/xenopsd/xenopsd-tls-helper`.
+  `/usr/libexec/xapi/ktls-helper`.
 * `ocaml/xenopsd/lib/migrate_connect.ml` — a drop-in replacement for
   `Open_uri.with_open_uri` that spawns the helper when `migration-tls = "ktls"`
   and falls back to `Open_uri` otherwise.
