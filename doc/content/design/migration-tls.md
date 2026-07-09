@@ -136,7 +136,7 @@ destination stunnel.
   against the destination's pool-internal certificate (CN = host uuid,
   SNI = `pool`).
 * single source of truth: the helper's verification is derived from the same
-  configuration the stunnel fallback would use, so `--ca`/`--sni` come from it
+  configuration the stunnel fallback would use, so `--cert-bundle-file`/`--sni` come from it
   and `--no-verify` is sent only when verification is disabled pool-wide. SNI is
   always sent, so the destination serves its pool-internal certificate either
   way.
