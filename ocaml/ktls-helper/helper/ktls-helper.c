@@ -1,5 +1,5 @@
 /*
- * xenopsd-tls-helper — sender-side kTLS helper for VM live migration.
+ * ktls-helper — sender-side kTLS helper for VM live migration.
  *
  * Steps:
  *   1. open a TCP socket to the destination host:port
@@ -13,11 +13,10 @@
  *   5. exit; xenopsd then read()s/write()s plaintext and the kernel
  *      decrypts/encrypts on the fly
  *
- * Build: see the dune file / Makefile. Installed at
- * /usr/libexec/xenopsd/xenopsd-tls-helper.
+ * Build: see the Makefile. Installed at /usr/libexec/xapi/ktls-helper.
  *
  * Invocation:
- *   xenopsd-tls-helper --host <h> --port <p> --send-fd <N>
+ *   ktls-helper --host <h> --port <p> --send-fd <N>
  *                      [--ca <pem> | --no-verify] [--sni <name>]
  *
  * Exit codes:
@@ -52,7 +51,7 @@ static void die(const char *fmt, ...) __attribute__((noreturn, format(printf, 1,
 static void die(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    fputs("xenopsd-tls-helper: ", stderr);
+    fputs("ktls-helper: ", stderr);
     vfprintf(stderr, fmt, ap);
     fputc('\n', stderr);
     va_end(ap);

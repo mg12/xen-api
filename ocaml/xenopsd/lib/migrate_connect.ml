@@ -15,7 +15,7 @@
 (* TLS transport for the VM-migration data connections in [Xenops_server].
 
    When [migration-tls = "ktls"] is set in xenopsd.conf and the migration URI
-   uses https, this module spawns the external [xenopsd-tls-helper] binary to
+   uses https, this module spawns the external [ktls-helper] binary to
    perform the TLS handshake and install a kTLS-enabled socket in the kernel,
    then receives the resulting socket fd via SCM_RIGHTS and passes it to the
    caller. The fd behaves like an ordinary TCP socket for [read]/[write]: the
@@ -58,7 +58,7 @@ let ktls_enabled () = !migration_tls = Migration_tls.Ktls
 (* Path to the helper binary. Registered as an Xcp_service resource
    ("xenopsd-tls-helper") so it is access-checked at startup and overridable in
    xenopsd.conf; this ref holds the resolved path. *)
-let helper_path = ref "/usr/libexec/xenopsd/xenopsd-tls-helper"
+let helper_path = ref "/usr/libexec/xapi/ktls-helper"
 
 (* Maximum time to wait for the helper to finish handshaking and hand back the
    fd before abandoning the kTLS path and falling back to stunnel. *)
@@ -172,7 +172,7 @@ let connect_via_ktls_helper ~host ~port ~verify_cert =
             | Unix.WSTOPPED n ->
                 Printf.sprintf "stopped by signal %d" n
           in
-          failwith (Printf.sprintf "xenopsd-tls-helper %s" reason)
+          failwith (Printf.sprintf "ktls-helper %s" reason)
       ) ;
       D.debug "received kTLS fd from helper for %s:%d" host port ;
       received_fd

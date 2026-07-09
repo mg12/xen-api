@@ -1,4 +1,4 @@
-# xenopsd-tls-helper
+# ktls-helper
 
 Sender-side kTLS helper for VM live migration. It replaces the per-migration
 stunnel client subprocess on the sender: it performs the TLS handshake in
@@ -27,7 +27,7 @@ still succeeds over TLS.
 ## Invocation contract
 
 ```
-xenopsd-tls-helper \
+ktls-helper \
     --host <dest-host> \
     --port <dest-port> \
     --send-fd <N> \
