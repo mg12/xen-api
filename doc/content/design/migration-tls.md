@@ -192,7 +192,9 @@ the dedicated helper above.
 ## Performance
 
 Single host-evacuate, 10 VMs migrating in parallel, sender kTLS vs sender
-stunnel, same host pair. The improvement grows with guest load, as a busier
+stunnel, same host pair. The hosts have Intel Xeon Gold 6430 cpus (128 pCPU,
+16 dom0 vCPUs) on a 25 GbE link, and each guest is Windows Server 2019 with
+64 GB RAM and 12 vCPUs. The improvement grows with guest load, as a busier
 guest has more memory to transmit and pushes dom0 cpu harder:
 
 | Guest load | stunnel | kTLS | Improvement |
