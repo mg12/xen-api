@@ -17,6 +17,7 @@
  *
  * Invocation:
  *   ktls-helper --host <h> --port <p> --send-fd <N>
+ *               --ciphers <list> --curves <name>
  *               [--cert-bundle-file <pem> | --no-verify] [--sni <name>]
  *
  * Exit codes:
@@ -119,6 +120,8 @@ int main(int argc, char **argv) {
     const char *host = NULL;
     const char *port = NULL;
     const char *bundle = NULL;
+    const char *ciphers = NULL;
+    const char *curves = NULL;
     const char *sni = NULL;
     int send_fd_num = -1;
     int no_verify = 0;
@@ -127,6 +130,8 @@ int main(int argc, char **argv) {
         {"host",                required_argument, 0, 'h'},
         {"port",                required_argument, 0, 'p'},
         {"cert-bundle-file",    required_argument, 0, 'c'},
+        {"ciphers",             required_argument, 0, 'C'},
+        {"curves",              required_argument, 0, 'g'},
         {"sni",                 required_argument, 0, 's'},
         {"send-fd",             required_argument, 0, 'f'},
         {"no-verify",           no_argument,       0, 'n'},
@@ -139,6 +144,8 @@ int main(int argc, char **argv) {
             case 'h': host = optarg; break;
             case 'p': port = optarg; break;
             case 'c': bundle = optarg; break;
+            case 'C': ciphers = optarg; break;
+            case 'g': curves = optarg; break;
             case 's': sni = optarg; break;
             case 'n': no_verify = 1; break;
             case 'f': {
@@ -155,11 +162,20 @@ int main(int argc, char **argv) {
             }
             default:
                 die("usage: %s --host H --port P --send-fd N "
+                    "--ciphers LIST --curves NAME "
                     "[--cert-bundle-file PEM | --no-verify] [--sni NAME]", argv[0]);
         }
     }
     if (!host || !port || send_fd_num < 0)
         die("missing required argument; need --host --port --send-fd");
+    /* --ciphers/--curves are mandatory and must be non-empty. The cipher list
+       and ECDHE curve come from xapi's TLS policy (Stunnel.Openssl) via argv, so
+       the helper keeps no cipher policy of its own. Fail here rather than
+       skip the SSL_CTX_set_cipher_list/set1_groups_list calls below: skipping
+       would leave OpenSSL's broad defaults active, negotiating weaker crypto
+       than the stunnel client this helper replaces. */
+    if (!ciphers || !ciphers[0] || !curves || !curves[0])
+        die("--ciphers and --curves are required and must be non-empty");
     if (!no_verify && !bundle)
         die("--cert-bundle-file is required unless --no-verify is given");
 
@@ -170,22 +186,18 @@ int main(int argc, char **argv) {
     if (!ctx)
         die("SSL_CTX_new: %s", ossl_err());
 
-    /* Pin TLSv1.2 and the AES-GCM cipher list to match stunnel.ml's migration
-       client config so the destination negotiates one of these. The TLS1.2 pin
-       is load-bearing for kTLS, not merely stunnel parity: it forecloses
-       TLS1.3 post-handshake KeyUpdate, which the kernel kTLS data path cannot
-       process once OpenSSL has handed off the socket. */
+    /* Pin TLSv1.2. This pin is necessary for kTLS, not merely stunnel parity:
+       it prevents TLS1.3 post-handshake KeyUpdate, which the kernel kTLS data
+       path cannot process once OpenSSL has handed off the socket. */
     SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
     SSL_CTX_set_max_proto_version(ctx, TLS1_2_VERSION);
-    /* Mirrors xapi's Constants.good_ciphersuites (kept as a literal to avoid a
-       build-time dependency from the C helper on the OCaml constant). */
-    if (SSL_CTX_set_cipher_list(
-            ctx,
-            "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256") != 1)
-        die("SSL_CTX_set_cipher_list: %s", ossl_err());
-    /* Match stunnel.ml's ECDHE group pin (curve = secp384r1). */
-    if (SSL_CTX_set1_groups_list(ctx, "secp384r1") != 1)
-        die("SSL_CTX_set1_groups_list: %s", ossl_err());
+    /* The cipher list and ECDHE curve arrive via --ciphers/--curves, sourced
+       from xapi's Stunnel.Openssl TLS policy (the same values the stunnel client
+       this helper replaces negotiates), so there is no second copy to drift. */
+    if (SSL_CTX_set_cipher_list(ctx, ciphers) != 1)
+        die("SSL_CTX_set_cipher_list(%s): %s", ciphers, ossl_err());
+    if (SSL_CTX_set1_groups_list(ctx, curves) != 1)
+        die("SSL_CTX_set1_groups_list(%s): %s", curves, ossl_err());
 
     /* Request kTLS BEFORE the handshake; also forbid renegotiation (defence in
        depth — the AES-GCM TLS1.2 suites do not renegotiate, and the kernel

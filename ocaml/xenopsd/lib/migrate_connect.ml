@@ -114,8 +114,20 @@ let helper_args ~host ~port ~fd_uuid ~verify_cert =
     | Some cfg ->
         ["--cert-bundle-file"; cfg.Stunnel.cert_bundle_path]
   in
+  (* Pass the cipher list and ECDHE curve the helper must negotiate, sourced
+     from the same [Stunnel.Openssl] values the stunnel client uses, so the two
+     paths stay in lock-step and the helper carries no cipher policy of its own. *)
+  let cipher_args =
+    [
+      "--ciphers"
+    ; Stunnel.Openssl.default_ciphers
+    ; "--curves"
+    ; Stunnel.Openssl.default_curve
+    ]
+  in
   ["--host"; host; "--port"; string_of_int port; "--sni"; sni_name]
   @ verify_args
+  @ cipher_args
   @ ["--send-fd"; fd_uuid]
 
 (* Spawn the helper and return the kTLS-enabled fd it sends back via SCM_RIGHTS.

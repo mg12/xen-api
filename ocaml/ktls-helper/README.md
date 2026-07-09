@@ -31,6 +31,8 @@ ktls-helper \
     --host <dest-host> \
     --port <dest-port> \
     --send-fd <N> \
+    --ciphers <openssl-cipher-list> \
+    --curves <openssl-curve> \
     [--cert-bundle-file <pem> | --no-verify] \
     [--sni <name>]
 ```
@@ -44,3 +46,8 @@ ktls-helper \
 - `--cert-bundle-file` is the PEM trust bundle used to verify the destination
   (a CA bundle or a pinned peer certificate). `--no-verify` skips verification
   when pool certificate verification is disabled.
+- `--ciphers` and `--curves` are the OpenSSL cipher list and ECDHE curve the
+  helper must negotiate. They are mandatory and passed by xenopsd from the same
+  `Stunnel.Openssl` TLS policy the stunnel client uses, so the helper carries no
+  cipher policy of its own. The helper refuses to run if either is missing or
+  empty rather than fall back to OpenSSL's broad defaults.
