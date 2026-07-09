@@ -112,7 +112,7 @@ let helper_args ~host ~port ~fd_uuid ~verify_cert =
            and is never more permissive. *)
         ["--no-verify"]
     | Some cfg ->
-        ["--ca"; cfg.Stunnel.cert_bundle_path]
+        ["--cert-bundle-file"; cfg.Stunnel.cert_bundle_path]
   in
   ["--host"; host; "--port"; string_of_int port; "--sni"; sni_name]
   @ verify_args

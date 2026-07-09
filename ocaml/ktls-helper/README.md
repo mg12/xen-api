@@ -31,7 +31,7 @@ ktls-helper \
     --host <dest-host> \
     --port <dest-port> \
     --send-fd <N> \
-    [--ca <ca-bundle.pem> | --no-verify] \
+    [--cert-bundle-file <pem> | --no-verify] \
     [--sni <name>]
 ```
 
@@ -41,5 +41,6 @@ ktls-helper \
   onto `N` via `SCM_RIGHTS` and exits 0 (the byte is a required carrier for the
   `SCM_RIGHTS` fd; its value is ignored). On any failure it writes a single line
   to stderr and exits 1.
-- `--ca` is the CA bundle used to verify the destination; `--no-verify` skips
-  verification (used when pool certificate verification is disabled).
+- `--cert-bundle-file` is the PEM trust bundle used to verify the destination
+  (a CA bundle or a pinned peer certificate). `--no-verify` skips verification
+  when pool certificate verification is disabled.

@@ -17,7 +17,7 @@
  *
  * Invocation:
  *   ktls-helper --host <h> --port <p> --send-fd <N>
- *                      [--ca <pem> | --no-verify] [--sni <name>]
+ *               [--cert-bundle-file <pem> | --no-verify] [--sni <name>]
  *
  * Exit codes:
  *   0  success (kTLS active in both directions, fd handed off)
@@ -118,7 +118,7 @@ static int tcp_connect(const char *host, const char *port) {
 int main(int argc, char **argv) {
     const char *host = NULL;
     const char *port = NULL;
-    const char *ca = NULL;
+    const char *bundle = NULL;
     const char *sni = NULL;
     int send_fd_num = -1;
     int no_verify = 0;
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
     static struct option long_opts[] = {
         {"host",                required_argument, 0, 'h'},
         {"port",                required_argument, 0, 'p'},
-        {"ca",                  required_argument, 0, 'a'},
+        {"cert-bundle-file",    required_argument, 0, 'c'},
         {"sni",                 required_argument, 0, 's'},
         {"send-fd",             required_argument, 0, 'f'},
         {"no-verify",           no_argument,       0, 'n'},
@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
         switch (c) {
             case 'h': host = optarg; break;
             case 'p': port = optarg; break;
-            case 'a': ca = optarg; break;
+            case 'c': bundle = optarg; break;
             case 's': sni = optarg; break;
             case 'n': no_verify = 1; break;
             case 'f': {
@@ -155,13 +155,13 @@ int main(int argc, char **argv) {
             }
             default:
                 die("usage: %s --host H --port P --send-fd N "
-                    "[--ca PEM | --no-verify] [--sni NAME]", argv[0]);
+                    "[--cert-bundle-file PEM | --no-verify] [--sni NAME]", argv[0]);
         }
     }
     if (!host || !port || send_fd_num < 0)
         die("missing required argument; need --host --port --send-fd");
-    if (!no_verify && !ca)
-        die("--ca is required unless --no-verify is given");
+    if (!no_verify && !bundle)
+        die("--cert-bundle-file is required unless --no-verify is given");
 
     int fd = tcp_connect(host, port);
 
@@ -197,8 +197,9 @@ int main(int argc, char **argv) {
     if (no_verify) {
         SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
     } else {
-        if (SSL_CTX_load_verify_locations(ctx, ca, NULL) != 1)
-            die("SSL_CTX_load_verify_locations(%s): %s", ca, ossl_err());
+        if (SSL_CTX_load_verify_locations(ctx, bundle, NULL) != 1)
+            die("failed to load --cert-bundle-file %s (expected a PEM bundle): "
+                "%s", bundle, ossl_err());
         SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
     }
 
