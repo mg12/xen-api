@@ -96,11 +96,8 @@ let helper_args ~host ~port ~fd_uuid ~verify_cert =
      cert), independently of whether we verify it, so it is always sent — the
      migration profile uses "pool", matching the stunnel client. *)
   let sni_name =
-    match verify_cert with
-    | Some cfg ->
-        Option.value ~default:"pool" cfg.Stunnel.sni
-    | None ->
-        "pool"
+    Option.bind verify_cert (fun cfg -> cfg.Stunnel.sni)
+    |> Option.value ~default:"pool"
   in
   let verify_args =
     match verify_cert with
